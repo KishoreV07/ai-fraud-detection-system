@@ -14,3 +14,25 @@ Real-time transaction fraud detection using machine learning, explainable AI, an
 Python · scikit-learn · XGBoost · SHAP · FastAPI · Streamlit · SQLite · Docker
 
 ## Architecture
+
+## Run Locally
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+
+python src\preprocessing.py
+python src\train_model.py
+python src\evaluate.py
+
+uvicorn api.main:app --reload
+# in a new terminal:
+streamlit run frontend\app.py
+```
+
+## Results
+| Metric | Score |
+|---|---|
+| ROC-AUC | 0.9676 |
+| Precision (fraud class) | 0.71 |
+| Recall (fraud class) | 0.81 |
