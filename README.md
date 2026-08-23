@@ -14,20 +14,10 @@ Real-time transaction fraud detection using machine learning, explainable AI, an
 Python · scikit-learn · XGBoost · SHAP · FastAPI · Streamlit · SQLite · Docker
 
 ## Architecture
-
-## Run Locally
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-
-python src\preprocessing.py
-python src\train_model.py
-python src\evaluate.py
-
-uvicorn api.main:app --reload
-# in a new terminal:
-streamlit run frontend\app.py
+```
+Data (Kaggle) → Preprocessing (SMOTE) → XGBoost Model → FastAPI → Streamlit Dashboard
+                                                              ↓
+                                                    SQLite (prediction history)
 ```
 
 ## Results
