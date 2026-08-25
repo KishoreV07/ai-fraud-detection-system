@@ -2,7 +2,6 @@ venv/
 data/raw/*.csv
 data/processed/
 data/*.db
-models/*.pkl
 __pycache__/
 *.pyc
 docs/*.png
