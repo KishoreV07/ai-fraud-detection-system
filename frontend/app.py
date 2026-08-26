@@ -11,15 +11,14 @@ Run:  streamlit run frontend/app.py
 import streamlit as st
 import requests
 import pandas as pd
-
+import plotly.express as px
 API_URL = "https://ai-fraud-detection-system-3ya6.onrender.com"
 
 st.set_page_config(page_title="AI Fraud Detection", page_icon="🛡️", layout="wide")
 
 st.title("🛡️ AI-Based Fraud Detection System")
 st.caption("Real-time transaction fraud risk scoring powered by XGBoost + SHAP")
-
-tab1, tab2, tab3 = st.tabs(["🔍 Single Prediction", "📁 Batch Upload (CSV)", "📜 History"])
+tab1, tab2, tab3, tab4 = st.tabs(["🔍 Single Prediction", "📁 Batch Upload (CSV)", "📜 History", "📊 Analytics"])
 
 # ---------------- TAB 1: Single Transaction ----------------
 with tab1:
@@ -48,26 +47,29 @@ with tab1:
         for i, (key, val) in enumerate(default_v.items()):
             features[key] = cols[i % 4].number_input(key, value=val, key=key)
 
-    if st.button("🔎 Check for Fraud", type="primary"):
+        if st.button("🔎 Check for Fraud", type="primary"):
         payload = {"Amount": amount, "Time": time, "features": features}
-        try:
-            response = requests.post(f"{API_URL}/predict", json=payload, timeout=5)
-            result = response.json()
+        with st.spinner("Checking transaction... (may take up to 50s if the API was idle)"):
+            try:
+                response = requests.post(f"{API_URL}/predict", json=payload, timeout=60)
+                result = response.json()
 
-            prob = result["fraud_probability"]
-            risk = result["risk_level"]
+                prob = result["fraud_probability"]
+                risk = result["risk_level"]
 
-            st.metric("Fraud Probability", f"{prob * 100:.2f}%")
+                st.metric("Fraud Probability", f"{prob * 100:.2f}%")
 
-            if risk == "High":
-                st.error("⚠️ HIGH RISK — likely fraudulent transaction")
-            elif risk == "Medium":
-                st.warning("⚠️ MEDIUM RISK — needs review")
-            else:
-                st.success("✅ LOW RISK — looks legitimate")
+                if risk == "High":
+                    st.error("⚠️ HIGH RISK — likely fraudulent transaction")
+                elif risk == "Medium":
+                    st.warning("⚠️ MEDIUM RISK — needs review")
+                else:
+                    st.success("✅ LOW RISK — looks legitimate")
 
-        except requests.exceptions.ConnectionError:
-            st.error("Could not reach the API. Make sure it's running: `uvicorn api.main:app --reload`")
+            except requests.exceptions.ConnectionError:
+                st.error("Could not reach the API. It may be starting up — try again in a moment.")
+            except requests.exceptions.ReadTimeout:
+                st.error("Request timed out. The API might be waking up from sleep — please try again.")
 
 # ---------------- TAB 2: Batch CSV Upload ----------------
 with tab2:
@@ -89,7 +91,7 @@ with tab2:
                 features = {f"V{j}": row[f"V{j}"] for j in range(1, 29)}
                 payload = {"Amount": row["Amount"], "Time": row["Time"], "features": features}
                 try:
-                    r = requests.post(f"{API_URL}/predict", json=payload, timeout=5)
+                    r = requests.post(f"{API_URL}/predict", json=payload, timeout=60)
                     results.append(r.json())
                 except Exception:
                     results.append({"fraud_probability": None, "is_fraud": None, "risk_level": "Error"})
@@ -112,7 +114,7 @@ with tab3:
         st.rerun()
 
     try:
-        response = requests.get(f"{API_URL}/history", timeout=5)
+        response = requests.get(f"{API_URL}/history", timeout=60)
         history = response.json()
 
         if not history:
@@ -134,3 +136,69 @@ with tab3:
 
     except requests.exceptions.ConnectionError:
         st.error("Could not reach the API. Make sure it's running: `uvicorn api.main:app --reload`")
+# ---------------- TAB 4: Analytics ----------------
+with tab4:
+    st.subheader("Fraud Analytics Dashboard")
+
+    try:
+        response = requests.get(f"{API_URL}/history", timeout=5)
+        history = response.json()
+
+        if not history:
+            st.info("No data yet — make some predictions first (Single Prediction or Batch Upload tabs).")
+        else:
+            df = pd.DataFrame(history)
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df["fraud_probability_pct"] = df["fraud_probability"] * 100
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total Transactions", len(df))
+            col2.metric("Flagged as Fraud", int(df["is_fraud"].sum()))
+            fraud_rate = (df["is_fraud"].sum() / len(df)) * 100
+            col3.metric("Fraud Rate", f"{fraud_rate:.1f}%")
+            col4.metric("Avg Amount", f"${df['amount'].mean():.2f}")
+
+            st.divider()
+
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+                st.markdown("**Risk Level Distribution**")
+                risk_counts = df["risk_level"].value_counts().reset_index()
+                risk_counts.columns = ["Risk Level", "Count"]
+                fig1 = px.pie(
+                    risk_counts, names="Risk Level", values="Count",
+                    color="Risk Level",
+                    color_discrete_map={"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"},
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+
+            with col_b:
+                st.markdown("**Fraud Probability Distribution**")
+                fig2 = px.histogram(
+                    df, x="fraud_probability_pct", nbins=20,
+                    labels={"fraud_probability_pct": "Fraud Probability (%)"},
+                    color_discrete_sequence=["#3498db"],
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+
+            st.markdown("**Predictions Over Time**")
+            df_sorted = df.sort_values("timestamp")
+            df_sorted["cumulative_fraud"] = df_sorted["is_fraud"].cumsum()
+            fig3 = px.line(
+                df_sorted, x="timestamp", y="cumulative_fraud",
+                labels={"cumulative_fraud": "Cumulative Fraud Count", "timestamp": "Time"},
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+
+            st.markdown("**Transaction Amount vs Fraud Probability**")
+            fig4 = px.scatter(
+                df, x="amount", y="fraud_probability_pct",
+                color="risk_level",
+                color_discrete_map={"Low": "#2ecc71", "Medium": "#f39c12", "High": "#e74c3c"},
+                labels={"amount": "Amount ($)", "fraud_probability_pct": "Fraud Probability (%)"},
+            )
+            st.plotly_chart(fig4, use_container_width=True)
+
+    except requests.exceptions.ConnectionError:
+        st.error("Could not reach the API.")
