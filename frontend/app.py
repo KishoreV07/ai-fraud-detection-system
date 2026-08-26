@@ -11,11 +11,14 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-
+from auth import check_login, logout_button
 API_URL = "https://ai-fraud-detection-system-3ya6.onrender.com"
 
 st.set_page_config(page_title="AI Fraud Detection", page_icon="🛡️", layout="wide")
+if not check_login():
+    st.stop()
 
+logout_button()
 st.title("🛡️ AI-Based Fraud Detection System")
 st.caption("Real-time transaction fraud risk scoring powered by XGBoost + SHAP")
 
