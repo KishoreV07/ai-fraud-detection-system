@@ -1,0 +1,4 @@
+Model,ROC-AUC,Precision (fraud),Recall (fraud),F1 (fraud)
+Random Forest,0.9786,0.6909,0.8,0.7415
+XGBoost,0.9676,0.713,0.8105,0.7586
+LightGBM,0.8891,0.2432,0.7474,0.3669
