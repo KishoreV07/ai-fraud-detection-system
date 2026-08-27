@@ -12,13 +12,16 @@ import requests
 import pandas as pd
 import plotly.express as px
 from auth import check_login, logout_button
+
 API_URL = "https://ai-fraud-detection-system-3ya6.onrender.com"
 
 st.set_page_config(page_title="AI Fraud Detection", page_icon="🛡️", layout="wide")
+
 if not check_login():
     st.stop()
 
 logout_button()
+
 st.title("🛡️ AI-Based Fraud Detection System")
 st.caption("Real-time transaction fraud risk scoring powered by XGBoost + SHAP")
 
@@ -142,6 +145,14 @@ with tab3:
 
             st.dataframe(hist_df, use_container_width=True)
 
+            csv_data = hist_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Download History as CSV",
+                data=csv_data,
+                file_name="fraud_prediction_history.csv",
+                mime="text/csv",
+            )
+
     except requests.exceptions.ConnectionError:
         st.error("Could not reach the API.")
     except requests.exceptions.ReadTimeout:
@@ -215,9 +226,10 @@ with tab4:
         st.error("Could not reach the API.")
     except requests.exceptions.ReadTimeout:
         st.error("Request timed out. The API might be waking up from sleep — please try again.")
+
 # ---------------- TAB 5: Alerts ----------------
 with tab5:
-    st.subheader("High-Risk Transaction Alerts")
+    st.subheader("Fraud Alerts")
     st.caption("Transactions flagged as fraud by the model, most recent first.")
 
     try:
@@ -231,12 +243,20 @@ with tab5:
             alerts = df[df["is_fraud"] == True].copy()
 
             if alerts.empty:
-                st.success("✅ No high-risk transactions detected.")
+                st.success("✅ No fraud-flagged transactions detected.")
             else:
                 alerts["fraud_probability"] = (alerts["fraud_probability"] * 100).round(2)
                 alerts = alerts.sort_values("timestamp", ascending=False)
 
-                st.error(f"⚠️ {len(alerts)} high-risk transaction(s) require review")
+                st.error(f"⚠️ {len(alerts)} transaction(s) flagged as fraud")
+
+                alerts_csv = alerts.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="📥 Download Alerts Report (CSV)",
+                    data=alerts_csv,
+                    file_name="fraud_alerts_report.csv",
+                    mime="text/csv",
+                )
 
                 for _, row in alerts.iterrows():
                     with st.container(border=True):
