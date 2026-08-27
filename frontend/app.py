@@ -218,7 +218,7 @@ with tab4:
 # ---------------- TAB 5: Alerts ----------------
 with tab5:
     st.subheader("High-Risk Transaction Alerts")
-    st.caption("Transactions flagged as High risk, most recent first.")
+    st.caption("Transactions flagged as fraud by the model, most recent first.")
 
     try:
         response = requests.get(f"{API_URL}/history", timeout=60)
@@ -228,7 +228,7 @@ with tab5:
             st.info("No predictions yet.")
         else:
             df = pd.DataFrame(history)
-            alerts = df[df["risk_level"] == "High"].copy()
+            alerts = df[df["is_fraud"] == True].copy()
 
             if alerts.empty:
                 st.success("✅ No high-risk transactions detected.")
