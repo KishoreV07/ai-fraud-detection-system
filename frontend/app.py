@@ -22,7 +22,7 @@ logout_button()
 st.title("🛡️ AI-Based Fraud Detection System")
 st.caption("Real-time transaction fraud risk scoring powered by XGBoost + SHAP")
 
-tab1, tab2, tab3, tab4 = st.tabs(["🔍 Single Prediction", "📁 Batch Upload (CSV)", "📜 History", "📊 Analytics"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔍 Single Prediction", "📁 Batch Upload (CSV)", "📜 History", "📊 Analytics", "🚨 Alerts"])
 
 # ---------------- TAB 1: Single Transaction ----------------
 with tab1:
@@ -210,6 +210,40 @@ with tab4:
                 labels={"amount": "Amount ($)", "fraud_probability_pct": "Fraud Probability (%)"},
             )
             st.plotly_chart(fig4, use_container_width=True)
+
+    except requests.exceptions.ConnectionError:
+        st.error("Could not reach the API.")
+    except requests.exceptions.ReadTimeout:
+        st.error("Request timed out. The API might be waking up from sleep — please try again.")
+# ---------------- TAB 5: Alerts ----------------
+with tab5:
+    st.subheader("High-Risk Transaction Alerts")
+    st.caption("Transactions flagged as High risk, most recent first.")
+
+    try:
+        response = requests.get(f"{API_URL}/history", timeout=60)
+        history = response.json()
+
+        if not history:
+            st.info("No predictions yet.")
+        else:
+            df = pd.DataFrame(history)
+            alerts = df[df["risk_level"] == "High"].copy()
+
+            if alerts.empty:
+                st.success("✅ No high-risk transactions detected.")
+            else:
+                alerts["fraud_probability"] = (alerts["fraud_probability"] * 100).round(2)
+                alerts = alerts.sort_values("timestamp", ascending=False)
+
+                st.error(f"⚠️ {len(alerts)} high-risk transaction(s) require review")
+
+                for _, row in alerts.iterrows():
+                    with st.container(border=True):
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Amount", f"${row['amount']:.2f}")
+                        col2.metric("Fraud Probability", f"{row['fraud_probability']:.2f}%")
+                        col3.write(f"**Time:** {row['timestamp'][:19]}")
 
     except requests.exceptions.ConnectionError:
         st.error("Could not reach the API.")
